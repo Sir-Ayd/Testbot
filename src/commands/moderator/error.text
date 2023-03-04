@@ -1,0 +1,14 @@
+const eChannel = client.guilds.cache.get('617923284868005894').channels.cache.get('1061849750040739931');
+const errorEmbed = new EmbedBuilder()
+    .setTitle('Error!')
+    .setDescription('An error occured!')
+    .setDescription(`${error}`)
+    .addFields(
+        { name: `Guild Name:`, value: `${interaction.guild}`, inline: true },
+        { name: `Guild Id:`, value: `${interaction.guild.id}`, inline: true },
+        { name: `Command ran:`, value: `${commandName}`, inline: true },
+    )
+    .setColor(0x1d8f2e)
+    .setTimestamp()
+    .setFooter({ text: 'WILD Bot', iconURL: 'https://i.imgur.com/aGjcDdv.jpg' })
+eChannel.send({ embeds: [errorEmbed] })

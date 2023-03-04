@@ -1,0 +1,157 @@
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js')
+const GuildSettings = require('../../schemas/GuildSettings');
+module.exports = {
+    name: "trackStart",
+    once: false,
+    async execute(queue, track, player) {
+        const guildSettings = await GuildSettings.findOne({ guildId: queue.guild.id });
+        const queueVol = queue.volume
+        let count = 0
+        const skip = new ButtonBuilder()
+            .setCustomId('skip')
+            .setLabel('Skip')
+            .setStyle(ButtonStyle.Success);
+        const queuebtn = new ButtonBuilder()
+            .setCustomId('queue')
+            .setLabel('Queue')
+            .setStyle(ButtonStyle.Success);
+        const pause = new ButtonBuilder()
+            .setCustomId('pause')
+            .setLabel('Pause')
+            .setStyle(ButtonStyle.Danger);
+        const previous = new ButtonBuilder()
+            .setCustomId('previous')
+            .setLabel('Previous')
+            .setStyle(ButtonStyle.Success);
+        const embed = new EmbedBuilder()
+            .setTitle("Now Playing:")
+            .setColor(0x1d8f2e)
+            .setDescription(`**[${track.title}](${track.url})**`)
+            .setImage(track.thumbnail)
+            .setTimestamp()
+            .setFooter({ text: 'WILD Bot', iconURL: 'https://i.imgur.com/aGjcDdv.jpg' })
+        const eChannel = player.client.guilds.cache.get('617923284868005894').channels.cache.get('1061849750040739931');
+        const errorEmbed = new EmbedBuilder()
+            .setTitle('Error!')
+            .setDescription('An error occured!')
+            .setColor(0x1d8f2e)
+            .setTimestamp()
+            .setFooter({ text: 'WILD Bot', iconURL: 'https://i.imgur.com/aGjcDdv.jpg' })
+        if (!guildSettings || !guildSettings.songChannelId) {
+            return
+        }
+        if (queue.guild.id === guildSettings.guildId) {
+            const channel = queue.guild.channels.cache.get(guildSettings.songChannelId);
+            if (!channel) {
+                return;
+            }
+            var modeRepeat = ['Off', 'Track', 'Queue', 'Auto Play']
+            embed
+                .setFields(
+                    { name: "Current volume", value: `${queueVol}`, inline: true },
+                    { name: "Loop/ AutoPlay mode", value: `${modeRepeat[queue.repeatMode]}`, inline: true }
+                )
+            let Msg = await channel.send({
+                embeds: [embed], components: [new ActionRowBuilder().addComponents(previous, queuebtn, pause, skip)]
+            })
+            var interval = setInterval(() => {
+                const check = queue.guild.channels.cache.get(guildSettings.songChannelId);
+                const messageCheck = check.messages.fetch(Msg.id)
+                if (queue.playing) {
+                    if (messageCheck) {
+                        const progress = queue.createProgressBar()
+                        const currentStreamTime = queue.streamTime;
+                        try {
+                            const totalTime = queue.current.durationMS;
+                            const currentTime = Math.round((currentStreamTime / totalTime) * 100)
+                            const clearTime = currentTime + 1
+                            if (clearTime === 100) {
+                                clearInterval(interval)
+                                Msg.delete()
+                                return;
+                            }
+                        } catch {
+                            clearInterval(interval)
+                            Msg.delete()
+                            errorEmbed
+                                .addFields(
+                                    { name: `Guild Name:`, value: `${interaction.guild}`, inline: true },
+                                    { name: `Guild Id:`, value: `${interaction.guild.id}`, inline: true },
+                                    { name: `Command ran:`, value: `${commandName}`, inline: true },
+                                    { name: `Error:`, value: `${error}`, inline: false },
+                                )
+                            eChannel.send({ embeds: [errorEmbed] })
+                            return;
+                        }
+                        Msg.edit({
+                            embeds: [embed.setFields(
+                                { name: "Duration", value: `${progress}` },
+                                { name: "Current volume", value: `${queue.volume}`, inline: true },
+                                { name: "Loop/ AutoPlay mode", value: `${modeRepeat[queue.repeatMode]}`, inline: true }
+                            )]
+                        }).then(() => count++).catch(error => {
+                            if (error) {
+                                if (!check) {
+                                    clearInterval(interval)
+                                    errorEmbed
+                                        .addFields(
+                                            { name: `Guild Name:`, value: `${interaction.guild}`, inline: true },
+                                            { name: `Guild Id:`, value: `${interaction.guild.id}`, inline: true },
+                                            { name: `Command ran:`, value: `${commandName}`, inline: true },
+                                            { name: `Error:`, value: `${error}`, inline: false },
+                                        )
+                                    eChannel.send({ embeds: [errorEmbed] })
+                                    return;
+                                }
+                                if (check) {
+                                    clearInterval(interval)
+                                    Msg.delete()
+                                    errorEmbed
+                                        .addFields(
+                                            { name: `Guild Name:`, value: `${Msg.guild}`, inline: true },
+                                            { name: `Guild Id:`, value: `${Msg.guild.id}`, inline: true },
+                                            { name: `Command ran:`, value: `Now Playing`, inline: true },
+                                            { name: `Error:`, value: `${error}`, inline: false },
+                                        )
+                                    eChannel.send({ embeds: [errorEmbed] })
+                                    return;
+                                }
+                            }
+                        })
+                    }
+                    if (!queue.playing) {
+                        if (!check) {
+                            clearInterval(interval)
+                            errorEmbed
+                                .addFields(
+                                    { name: `Guild Name:`, value: `${interaction.guild}`, inline: true },
+                                    { name: `Guild Id:`, value: `${interaction.guild.id}`, inline: true },
+                                    { name: `Command ran:`, value: `${commandName}`, inline: true },
+                                    { name: `Error:`, value: `${error}`, inline: false },
+                                )
+                            eChannel.send({ embeds: [errorEmbed] })
+                            return;
+                        }
+                        if (check) {
+                            clearInterval(interval)
+                            Msg.delete()
+                            errorEmbed
+                                .addFields(
+                                    { name: `Guild Name:`, value: `${interaction.guild}`, inline: true },
+                                    { name: `Guild Id:`, value: `${interaction.guild.id}`, inline: true },
+                                    { name: `Command ran:`, value: `${commandName}`, inline: true },
+                                    { name: `Error:`, value: `${error}`, inline: false },
+                                )
+                            eChannel.send({ embeds: [errorEmbed] })
+                            return;
+                        }
+                    }
+                }
+                if (!messageCheck) {
+                    clearInterval(interval)
+                    return
+                }
+            }, 1000)
+        }
+    }
+}
